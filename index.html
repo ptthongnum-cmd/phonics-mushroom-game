@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phonics Mushroom Arcade</title>
-    <!-- 1. ดึงฟอนต์ "FC Itim" (ฟอนต์ไอติม) น่ารักๆ มาใช้ในเกม -->
+    <title>Phonics Mushroom Tap Game</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
     
-    <!-- นำเข้า Phaser 3 Library สำหรับรันเกม -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #ffebf0; overflow: hidden; }
@@ -27,198 +25,156 @@ const config = {
     parent: 'game-container',
     physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 700 }, debug: false } // แรงโน้มถ่วงสไตล์มาริโอ้
+        arcade: { gravity: { y: 0 }, debug: false } // ปิดแรงโน้มถ่วง เพราะเราจะเน้นเอานิ้วจิ้มเห็ดที่ลอยอยู่
     },
     scene: { preload: preload, create: create, update: update }
 };
 
 const game = new Phaser.Game(config);
-let player;
-let mushrooms;
 let score = 0;
 let scoreText;
 let targetText;
-let currentTarget = 'it'; // เกมจะสุ่มให้เก็บเสียงใดเสียงหนึ่ง
+let currentTarget = 'it'; // เกมจะสุ่มเสียงที่ต้องหา (-it หรือ -ig)
+let spawnTimer;
 
-// คลังคำศัพท์สำหรับแสดงบนหัวเห็ด
+// คลังคำศัพท์ Phonics สำเร็จรูปสำหรับแปะบนหัวเห็ด
 const wordsIT = ['sit', 'hit', 'fit', 'bit', 'pit'];
 const wordsIG = ['pig', 'dig', 'big', 'wig', 'fig'];
 
 function preload() {
-    // โหลดภาพกราฟิกสีสันสดใสดึงดูดเด็กๆ (ใช้ Asset ออนไลน์ฟรี)
-    this.load.image('sky', 'https://labs.phaser.io/assets/skies/gradient24.png'); // ท้องฟ้าทไวไลท์พาสเทล
-    this.load.image('ground', 'https://labs.phaser.io/assets/sprites/platform.png');
-    this.load.image('mushroom_it', 'https://labs.phaser.io/assets/sprites/mushroom.png'); // แทนเห็ด -it
-    this.load.image('mushroom_ig', 'https://labs.phaser.io/assets/sprites/apple.png');    // แทนเห็ด -ig
-    this.load.spritesheet('dude', 'https://labs.phaser.io/assets/sprites/dude.png', { frameWidth: 32, frameHeight: 48 });
+    // โหลดกราฟิกธีมมาริโอ้ สีสันสดใสพาสเทล
+    this.load.image('sky', 'https://labs.phaser.io/assets/skies/gradient24.png'); // ท้องฟ้าสดใส
+    this.load.image('brick', 'https://labs.phaser.io/assets/sprites/platform.png'); // บล็อกดิน/อิฐมาริโอ้
+    this.load.image('mushroom_it', 'https://labs.phaser.io/assets/sprites/mushroom.png'); // เห็ดแดง -it
+    this.load.image('mushroom_ig', 'https://labs.phaser.io/assets/sprites/apple.png');    // เห็ดเขียว (แอปเปิ้ลแทนชั่วคราว) -ig
 }
 
 function create() {
-    let self = this;
-    
-    // ใส่พื้นหลังท้องฟ้าพาสเทล
+    // 1. ใส่ภาพพื้นหลังท้องฟ้าสไตล์มาริโอ้คิวท์ๆ
     let bg = this.add.image(400, 300, 'sky');
     bg.setDisplaySize(800, 600);
 
-    // สร้างพื้นดินและชั้นลอยสไตล์มาริโอ้
-    let platforms = this.physics.add.staticGroup();
-    platforms.create(400, 568, 'ground').setScale(2).refreshBody(); 
-    platforms.create(600, 400, 'ground'); 
-    platforms.create(150, 250, 'ground'); 
-    platforms.create(400, 120, 'ground').setScale(0.5, 1).refreshBody();
+    // 2. ตกแต่งด่านด้านล่างด้วยบล็อกอิฐสไตล์มาริโอ้ (ให้ฟีลเหมือนอยู่ในเกม)
+    let bricks = this.add.tileSprite(400, 560, 800, 80, 'brick');
 
-    // สร้างตัวละครหลัก
-    player = this.physics.add.sprite(100, 450, 'dude');
-    player.setBounce(0.15);
-    player.setCollideWorldBounds(true);
-
-    // อนิเมชั่นการเดิน
-    this.anims.create({ key: 'left', frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
-    this.anims.create({ key: 'turn', frames: [ { key: 'dude', frame: 4 } ], frameRate: 20 });
-    this.anims.create({ key: 'right', frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }), frameRate: 10, repeat: -1 });
-
-    this.physics.add.collider(player, platforms);
-
-    // สร้างกลุ่มเห็ด Phonics
-    mushrooms = this.physics.add.group();
-    
-    // สุ่มปล่อยเห็ดลงมาในด่าน
-    for (let i = 0; i < 3; i++) {
-        // เห็ดกลุ่ม -it
-        let m_it = mushrooms.create(120 + (i * 240), Phaser.Math.Between(0, 100), 'mushroom_it');
-        m_it.setData('phonics_type', 'it');
-        let wordIT = Phaser.Utils.Array.GetRandom(wordsIT);
-        m_it.setData('word', wordIT);
-        
-        // เห็ดกลุ่ม -ig
-        let m_ig = mushrooms.create(240 + (i * 240), Phaser.Math.Between(0, 100), 'mushroom_ig');
-        m_ig.setData('phonics_type', 'ig');
-        let wordIG = Phaser.Utils.Array.GetRandom(wordsIG);
-        m_ig.setData('word', wordIG);
-    }
-
-    // วนลูปเพื่อสร้างตัวหนังสือ "ฟอนต์ไอติม" แปะบนหัวเห็ดทุกต้น
-    mushrooms.children.iterate(function (child) {
-        child.setBounceY(Phaser.Math.FloatBetween(0.2, 0.4));
-        
-        // ใช้ fontFFF: 'Itim' ที่ดึงมาจาก Google Fonts
-        let t = self.add.text(child.x, child.y - 30, child.getData('word'), { 
-            fontFamily: 'Itim', 
-            fontSize: '26px', 
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-        
-        child.setData('associated_text', t);
+    // 3. ตั้งค่าระบบคะแนนและป้ายคำสั่ง (ใช้ฟอนต์ไอติมทั้งหมด)
+    scoreText = this.add.text(30, 30, 'คะแนน: 0', { 
+        fontFamily: 'Itim', fontSize: '36px', fill: '#fff', stroke: '#ff4a85', strokeThickness: 6 
     });
 
-    this.physics.add.collider(mushrooms, platforms);
-    this.physics.add.overlap(player, mushrooms, collectMushroom, null, this);
-
-    // สุ่มเสียงเป้าหมายรอบแรก (เช่น ให้เด็กๆ ตามหาเสียง -it หรือ -ig ก่อน)
-    currentTarget = Phaser.Math.Between(0, 1) === 0 ? 'it' : 'ig';
-
-    // UI แสดงคะแนนด้วยฟอนต์ไอติมสุดน่ารัก
-    scoreText = this.add.text(16, 16, 'คะแนน: 0', { 
-        fontFamily: 'Itim', fontSize: '32px', fill: '#fff', stroke: '#ff4a85', strokeThickness: 5 
-    });
-
-    // ป้ายบอกนักเรียนว่าตอนนี้ต้องเก็บเห็ดสระอะไร
-    targetText = this.add.text(400, 25, 'ตามหาเสียง: -' + currentTarget + ' ✨', { 
-        fontFamily: 'Itim', fontSize: '38px', fill: '#ffff00', stroke: '#000000', strokeThickness: 6 
+    targetText = this.add.text(400, 50, 'ไหนลองจิ้มคำเสียง: -it สิคราบบบ 🍄', { 
+        fontFamily: 'Itim', fontSize: '40px', fill: '#ffff00', stroke: '#000', strokeThickness: 6 
     }).setOrigin(0.5);
 
-    // สร้างปุ่ม Touch ขนาดใหญ่สำหรับ iPad ลายมินิมอลสีพาสเทล
-    createTouchButtons(this);
-}
+    // สุ่มเสียงเป้าหมายครั้งแรกเมื่อเริ่มเกม
+    changeTargetSound();
 
-let isLeftPressed = false;
-let isRightPressed = false;
-let isJumpPressed = false;
-
-function update() {
-    // บังคับตัวละครเดินตามการทัช
-    if (isLeftPressed) {
-        player.setVelocityX(-200);
-        player.anims.play('left', true);
-    } else if (isRightPressed) {
-        player.setVelocityX(200);
-        player.anims.play('right', true);
-    } else {
-        player.setVelocityX(0);
-        player.anims.play('turn');
-    }
-
-    if (isJumpPressed && player.body.touching.down) {
-        player.setVelocityY(-500);
-        isJumpPressed = false; 
-    }
-
-    // อัปเดตตำแหน่งตัวหนังสือคำศัพท์ให้วิ่งตามเห็ดดึ๋งๆ
-    mushrooms.children.iterate(function (child) {
-        if (child.active) {
-            let t = child.getData('associated_text');
-            if (t) { t.setPosition(child.x, child.y - 35); }
-        }
+    // 4. ระบบสุ่มปล่อยเห็ดเด้งขึ้นมาจากบล็อกอิฐด้านล่าง ทุกๆ 1.5 วินาที
+    spawnTimer = this.time.addEvent({
+        delay: 1500,
+        callback: spawnMushroom,
+        callbackScope: this,
+        loop: true
     });
 }
 
-// ฟังก์ชันเมื่อชนเห็ด (เก็บเห็ด)
-function collectMushroom(player, mushroom) {
-    let type = mushroom.getData('phonics_type');
-    let textObj = mushroom.getData('associated_text');
-    
-    if (textObj) { textObj.destroy(); }
-    mushroom.disableBody(true, true);
-
-    // ระบบเช็คเงื่อนไข Phonics
-    if (type === currentTarget) {
-        score += 10;
-        scoreText.setText('คะแนน: ' + score);
-        
-        // ส่องเอฟเฟกต์ตัวหนังสือชมเชยแบบน่ารัก
-        let eff = this.add.text(mushroom.x, mushroom.y - 20, 'Correct! 🎉', { 
-            fontFamily: 'Itim', fontSize: '30px', fill: '#00ff00', stroke: '#fff', strokeThickness: 4 
-        }).setOrigin(0.5);
-        this.time.delayedCall(800, () => { eff.destroy(); });
-        
-        // สุ่มเปลี่ยนเสียงเป้าหมายใหม่ เพิ่มความท้าทาย
-        currentTarget = currentTarget === 'it' ? 'ig' : 'it';
-        targetText.setText('ตามหาเสียง: -' + currentTarget + ' ✨');
-    } else {
-        // หากเก็บผิดสระ คะแนนลดและแจ้งเตือนคิวท์ๆ
-        score -= 5;
-        if(score < 0) score = 0;
-        scoreText.setText('คะแนน: ' + score);
-        
-        let eff = this.add.text(mushroom.x, mushroom.y - 20, 'Oops! ❌', { 
-            fontFamily: 'Itim', fontSize: '30px', fill: '#ff0000', stroke: '#fff', strokeThickness: 4 
-        }).setOrigin(0.5);
-        this.time.delayedCall(800, () => { eff.destroy(); });
-    }
+function update() {
+    // สำหรับเกมจิ้ม เราไม่จำเป็นต้องเขียนโค้ดอัปเดตปุ่มกดแล้วครับ ตัวเกมจะรอฟังสัญญาณจากการทัชอย่างเดียวเลย
 }
 
-// ปุ่มกดบนหน้าจอ iPad ดีไซน์วงกลมพาสเทลน่ารัก
-function createTouchButtons(scene) {
-    // ปุ่มซ้าย
-    let btnLeft = scene.add.circle(80, 500, 45, 0xff94b7, 0.8).setInteractive();
-    scene.add.text(80, 500, '◀', { fontSize: '40px', fill: '#fff' }).setOrigin(0.5);
-    btnLeft.on('pointerdown', () => { isLeftPressed = true; });
-    btnLeft.on('pointerup', () => { isLeftPressed = false; });
-    btnLeft.on('pointerout', () => { isLeftPressed = false; });
+// --- ฟังก์ชันสุ่มปล่อยเห็ดขึ้นมาบนหน้าจอ ---
+function spawnMushroom() {
+    let x = Phaser.Math.Between(100, 700); // สุ่มตำแหน่งแกน X บนหน้าจอ iPad
+    let y = 600; // เริ่มต้นจากด้านล่างจอ
 
-    // ปุ่มขวา
-    let btnRight = scene.add.circle(200, 500, 45, 0xff94b7, 0.8).setInteractive();
-    scene.add.text(200, 500, '▶', { fontSize: '40px', fill: '#fff' }).setOrigin(0.5);
-    btnRight.on('pointerdown', () => { isRightPressed = true; });
-    btnRight.on('pointerup', () => { isRightPressed = false; });
-    btnRight.on('pointerout', () => { isRightPressed = false; });
+    // สุ่มว่าเห็ดต้นนี้จะเป็นกลุ่มคำประเภทไหน (-it หรือ -ig)
+    let type = Phaser.Math.Between(0, 1) === 0 ? 'it' : 'ig';
+    let texture = type === 'it' ? 'mushroom_it' : 'mushroom_ig';
+    let word = type === 'it' ? Phaser.Utils.Array.GetRandom(wordsIT) : Phaser.Utils.Array.GetRandom(wordsIG);
 
-    // ปุ่มกระโดด (อยู่ฝั่งขวาของหน้าจอ)
-    let btnJump = scene.add.circle(700, 500, 50, 0x5ce1e6, 0.8).setInteractive();
-    scene.add.text(700, 500, 'JUMP', { fontFamily: 'Itim', fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
-    btnJump.on('pointerdown', () => { isJumpPressed = true; });
+    // สร้างตัวเห็ด
+    let mushroom = this.physics.add.image(x, y, texture);
+    mushroom.setData('phonics_type', type);
+    mushroom.setScale(1.2); // ขยายตัวเห็ดใหญ่ขึ้นอีกนิด เด็กๆ จะได้เอานิ้วแปะง่ายๆ
+
+    // สั่งให้เห็ด "กระโดดเด้งลอยขึ้นมาจากด้านล่าง" เหมือนเห็ดมาริโอ้ที่หลุดจากบล็อก
+    mushroom.setVelocityY(Phaser.Math.Between(-350, -500));
+
+    // ใส่ตัวหนังสือคำศัพท์ "ฟอนต์ไอติม" มนๆ น่ารักๆ ไว้ที่ตัวเห็ด
+    let textObj = this.add.text(x, y, word, {
+        fontFamily: 'Itim',
+        fontSize: '28px',
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 5
+    }).setOrigin(0.5);
+
+    // ตั้งค่าระบบทัชสกรีน (ใช้นิ้วแปะที่ตัวเห็ดโดยตรง)
+    mushroom.setInteractive();
+    
+    // เมื่อเด็กรวมถึงใช้นิ้ว "แปะ/ทัช" บนหน้าจอ iPad ที่เห็ดต้นนี้
+    mushroom.on('pointerdown', function() {
+        // ดึงค่าประเภทของเห็ดต้นนี้มาเช็ค
+        if (mushroom.getData('phonics_type') === currentTarget) {
+            // หากจิ้มถูกกลุ่มเสียง -> ได้คะแนนเพิ่ม!
+            score += 10;
+            scoreText.setText('คะแนน: ' + score);
+            
+            // แสดงข้อความชมเชย
+            let eff = this.scene.add.text(mushroom.x, mushroom.y, 'เย้! ถูกต้อง 🎉', { 
+                fontFamily: 'Itim', fontSize: '32px', fill: '#00ff00', stroke: '#fff', strokeThickness: 5 
+            }).setOrigin(0.5);
+            this.scene.time.delayedCall(600, () => { eff.destroy(); });
+
+            // เมื่อตอบถูก ให้สลับไปสุ่มหาเสียงตัวอื่นต่อทันทีเพื่อความสนุก
+            changeTargetSound();
+        } else {
+            // หากจิ้มผิดกลุ่มเสียง -> หักคะแนนเล็กน้อย
+            score -= 5;
+            if (score < 0) score = 0;
+            scoreText.setText('คะแนน: ' + score);
+
+            let eff = this.scene.add.text(mushroom.x, mushroom.y, 'ลองใหม่นะ ❌', { 
+                fontFamily: 'Itim', fontSize: '32px', fill: '#ff0000', stroke: '#fff', strokeThickness: 5 
+            }).setOrigin(0.5);
+            this.scene.time.delayedCall(600, () => { eff.destroy(); });
+        }
+
+        // จิ้มเสร็จแล้วให้ลบเห็ดและตัวหนังสือคำศัพท์ทิ้งไป
+        textObj.destroy();
+        mushroom.destroy();
+    });
+
+    // อัปเดตให้ข้อความวิ่งลอยตามเห็ดขึ้นไปในอากาศ
+    this.tweens.add({
+        targets: textObj,
+        x: x,
+        y: -100, // วิ่งเลยหายไปด้านบนจอ
+        duration: 4000,
+        onUpdate: function() {
+            if (mushroom.active) {
+                textObj.setPosition(mushroom.x, mushroom.y - 5);
+            }
+        },
+        onComplete: function() {
+            // ถ้าหลุดขอบจอไปโดยไม่มีใครจิ้ม ให้เคลียร์ทิ้งป้องกันเครื่องค้าง
+            if (mushroom) mushroom.destroy();
+            textObj.destroy();
+        }
+    });
+
+    // สั่งให้ตัวเห็ดค่อยๆ ลอยเคลื่อนที่ขึ้นไปด้านบนด้วย
+    this.tweens.add({
+        targets: mushroom,
+        y: -100,
+        duration: 4000
+    });
+}
+
+// ฟังก์ชันสำหรับสุ่มเปลี่ยนเสียงโจทย์ภาษาอังกฤษรอบใหม่
+function changeTargetSound() {
+    currentTarget = Phaser.Math.Between(0, 1) === 0 ? 'it' : 'ig';
+    targetText.setText('ไหนลองจิ้มคำเสียง: -' + currentTarget + ' สิคราบบบ 🍄✨');
 }
 </script>
 
