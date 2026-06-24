@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phonics Ghibli Mushroom Adventure</title>
+    <title>Phonics Ghibli Luxury 3D</title>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { 
             margin: 0; 
             padding: 0; 
-            background-color: #17261c; 
+            background-color: #121c15; 
             overflow: hidden;
             display: flex;
             justify-content: center;
@@ -20,14 +22,23 @@
             height: 100vh;
         }
         canvas { 
-            box-shadow: 0px 15px 40px rgba(0, 0, 0, 0.6);
-            border-radius: 16px;
+            box-shadow: 0px 20px 50px rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+        }
+        /* บังคับดักให้เบราว์เซอร์โหลดฟอนต์ไอติมมารอก่อนเกมเริ่ม */
+        .font-loader {
+            font-family: 'Itim';
+            position: absolute;
+            visibility: hidden;
         }
     </style>
 </head>
 <body>
 
+    <div class="font-loader">คลังคำศัพท์ภาษาไทยอังกฤษ</div>
+
 <script>
+// --- บังคับขนาดหน้าจอแนวตั้งสัดส่วนกระดาษ A4 (595 x 841) ---
 const config = {
     type: Phaser.AUTO,
     width: 595,
@@ -45,136 +56,56 @@ let scoreText;
 let targetText;
 let currentTarget = 'it';
 let spawnTimer;
-let ambientParticles;
 
 const wordsIT = ['sit', 'hit', 'fit', 'bit', 'pit'];
 const wordsIG = ['pig', 'dig', 'big', 'wig', 'fig'];
 
-function preload() {
-    this.load.image('ghibli_bg', 'https://labs.phaser.io/assets/skies/gradient2.png');
-    this.load.image('mossy_ground', 'https://labs.phaser.io/assets/sprites/platform.png');
-    this.load.image('mushroom_it', 'https://labs.phaser.io/assets/sprites/mushroom.png');
-    this.load.image('mushroom_ig', 'https://labs.phaser.io/assets/images/fuji.png');
-    this.load.image('leaf_particle', 'https://labs.phaser.io/assets/particles/green.png');
-}
+function preload() {}
 
 function create() {
-    let bg = this.add.image(297, 420, 'ghibli_bg');
-    bg.setDisplaySize(595, 841);
-    bg.setTint(0x55aa77);
+    let scene = this;
 
-    let ground = this.add.tileSprite(297, 810, 595, 70, 'mossy_ground');
-    ground.setTint(0x1e4620);
+    // 🎨 1. วาดกราฟิกสดสไตล์ GHIBLI 3D
+    let bgGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+    bgGraphics.fillGradientStyle(0xdcf5e9, 0xdcf5e9, 0xbbe3d1, 0xbbe3d1, 1);
+    bgGraphics.fillRect(0, 0, 595, 841);
+    bgGraphics.generateTexture('ghibli_sky', 595, 841);
+    this.add.image(297, 420, 'ghibli_sky');
 
-    ambientParticles = this.add.particles(0, 0, 'leaf_particle', {
-        x: { min: 0, max: 595 },
-        y: { min: 0, max: 841 },
-        speed: { min: 10, max: 30 },
-        scale: { start: 0.1, end: 0.4 },
-        alpha: { start: 0.6, end: 0 },
-        lifespan: 3000,
-        frequency: 200
+    // วาดหัวเห็ด 3D มิติตระกูล -it (สีแดงมะเขือเทศ)
+    let m1 = this.make.graphics({ x: 0, y: 0, add: false });
+    m1.fillStyle(0xfc5c65, 1); 
+    m1.fillEllipse(30, 25, 60, 45);
+    m1.fillStyle(0xffffff, 1); 
+    m1.fillCircle(18, 18, 5);
+    m1.fillCircle(42, 20, 6);
+    m1.fillCircle(30, 32, 4);
+    m1.fillStyle(0xfff5db, 1); 
+    m1.fillRoundedRect(22, 35, 16, 25, 6);
+    m1.generateTexture('m_red', 60, 60);
+
+    // วาดผลไม้ป่า 3D มิติตระกูล -ig (สีเขียวพาสเทล)
+    let m2 = this.make.graphics({ x: 0, y: 0, add: false });
+    m2.fillStyle(0x2bcbba, 1); 
+    m2.fillCircle(30, 32, 24);
+    m2.fillStyle(0x26de81, 1); 
+    m2.fillEllipse(30, 10, 14, 8);
+    m2.fillStyle(0xffffff, 0.4); 
+    m2.fillCircle(20, 24, 5);
+    m2.generateTexture('m_green', 60, 60);
+
+    // 📊 2. ออกแบบแถบ UI ด้านบน (คุมโทนเรียบหรูสไตล์ Ghibli)
+    let topBar = this.add.graphics();
+    topBar.fillStyle(0xffffff, 0.75);
+    topBar.fillRoundedRect(25, 25, 545, 150, 18);
+
+    // ตั้งค่าตัวหนังสือคะแนนสะสม (ใช้ระบบเจาะจงฟอนต์ 'Itim')
+    scoreText = this.add.text(50, 45, 'คะแนนสะสม: 0', { 
+        fontFamily: 'Itim', 
+        fontSize: '32px', 
+        fill: '#1b4332', 
+        style: 'bold'
     });
 
-    // แยกโซนข้อความ ไม่ให้ทับกันเด็ดขาด
-    scoreText = this.add.text(40, 40, 'Score: 0', { 
-        fontFamily: 'Itim', fontSize: '32px', fill: '#ffffff', stroke: '#1c3524', strokeThickness: 5 
-    });
-
-    targetText = this.add.text(297, 130, 'ตามหาเสียง: -it 🌿', { 
-        fontFamily: 'Itim', fontSize: '38px', fill: '#fff5cc', stroke: '#2e4a36', strokeThickness: 6 
-    }).setOrigin(0.5);
-
-    changeTargetSound();
-
-    spawnTimer = this.time.addEvent({
-        delay: 1400,
-        callback: spawnGhibliMushroom,
-        callbackScope: this,
-        loop: true
-    });
-}
-
-function update() {}
-
-function spawnGhibliMushroom() {
-    let x = Phaser.Math.Between(70, 525);
-    let y = 841;
-
-    let type = Phaser.Math.Between(0, 1) === 0 ? 'it' : 'ig';
-    let texture = type === 'it' ? 'mushroom_it' : 'mushroom_ig';
-    let word = type === 'it' ? Phaser.Utils.Array.GetRandom(wordsIT) : Phaser.Utils.Array.GetRandom(wordsIG);
-
-    let mushroom = this.physics.add.image(x, y, texture);
-    mushroom.setData('phonics_type', type);
-    mushroom.setScale(1.5);
-    mushroom.setVelocityY(Phaser.Math.Between(-250, -400));
-
-    let textObj = this.add.text(x, y, word, {
-        fontFamily: 'Itim',
-        fontSize: '34px',
-        fill: '#ffffff',
-        stroke: '#1c3524',
-        strokeThickness: 6
-    }).setOrigin(0.5);
-
-    mushroom.setInteractive();
-    
-    mushroom.on('pointerdown', function() {
-        if (mushroom.getData('phonics_type') === currentTarget) {
-            score += 10;
-            scoreText.setText('Score: ' + score);
-            
-            let eff = this.scene.add.text(mushroom.x, mushroom.y, 'Wonderful! ✨', { 
-                fontFamily: 'Itim', fontSize: '34px', fill: '#ffff99', stroke: '#2e4a36', strokeThickness: 5 
-            }).setOrigin(0.5);
-            this.scene.time.delayedCall(500, () => { eff.destroy(); });
-
-            changeTargetSound();
-        } else {
-            score -= 5;
-            if (score < 0) score = 0;
-            scoreText.setText('Score: ' + score);
-
-            let eff = this.scene.add.text(mushroom.x, mushroom.y, 'Try Again 🍃', { 
-                fontFamily: 'Itim', fontSize: '32px', fill: '#ff9999', stroke: '#2e4a36', strokeThickness: 5 
-            }).setOrigin(0.5);
-            this.scene.time.delayedCall(500, () => { eff.destroy(); });
-        }
-
-        textObj.destroy();
-        mushroom.destroy();
-    });
-
-    this.tweens.add({
-        targets: textObj,
-        x: x + Phaser.Math.Between(-20, 20),
-        y: -100,
-        duration: 5500,
-        onUpdate: function() {
-            if (mushroom.active) {
-                textObj.setPosition(mushroom.x, mushroom.y - 10);
-            }
-        },
-        onComplete: function() {
-            if (mushroom) mushroom.destroy();
-            textObj.destroy();
-        }
-    });
-
-    this.tweens.add({
-        targets: mushroom,
-        x: x + Phaser.Math.Between(-20, 20),
-        y: -100,
-        duration: 5500
-    });
-}
-
-function changeTargetSound() {
-    currentTarget = Phaser.Math.Between(0, 1) === 0 ? 'it' : 'ig';
-    targetText.setText('ตามหาเสียง: -' + currentTarget + ' 🌿✨');
-}
-</script>
-
-</body>
-</html>
+    // โจทย์คำสั่งตัวใหญ่ๆ ชัดเจน อยู่ตรงกลางบาร์พอดี
+    targetText = this.add.text(297, 125, '✨ ไหนลองจิ้มคำเสียง: -it ✨', {
