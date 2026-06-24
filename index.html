@@ -4,17 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Phonics Ghibli Mushroom Adventure</title>
-    <!-- ดึงฟอนต์ไอติมสุดละมุน -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
-    
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { 
             margin: 0; 
             padding: 0; 
-            background-color: #17261c; /* โทนป่าทึบอบอุ่น */
+            background-color: #17261c; 
             overflow: hidden;
             display: flex;
             justify-content: center;
@@ -30,7 +28,6 @@
 <body>
 
 <script>
-// --- ตั้งค่าหน้าจอแนวตั้งสัดส่วนกระดาษ A4 เคลียร์และคมชัด ---
 const config = {
     type: Phaser.AUTO,
     width: 595,
@@ -54,25 +51,21 @@ const wordsIT = ['sit', 'hit', 'fit', 'bit', 'pit'];
 const wordsIG = ['pig', 'dig', 'big', 'wig', 'fig'];
 
 function preload() {
-    // โหลดกราฟิกคุมโทนป่า 3D Ghibli สวยงาม อบอุ่น แสงนุ่มๆ
-    this.load.image('ghibli_bg', 'https://labs.phaser.io/assets/skies/gradient2.png'); // แทนพื้นหลังไล่เฉดแสงแดดส่องรำไรผ่านต้นไม้
-    this.load.image('mossy_ground', 'https://labs.phaser.io/assets/sprites/platform.png'); // พื้นหญ้ามอสสีเขียวชอุ่มเข้ม
-    this.load.image('mushroom_it', 'https://labs.phaser.io/assets/sprites/mushroom.png'); // เห็ดวิเศษตระกูล -it
-    this.load.image('mushroom_ig', 'https://labs.phaser.io/assets/images/fuji.png');     // เปลี่ยนเป็นผลไม้ป่าคูลๆ แทนตระกูล -ig
-    this.load.image('leaf_particle', 'https://labs.phaser.io/assets/particles/green.png'); // ละอองใบไม้และสปอร์เห็ดเรืองแสงแบบจิบลิ
+    this.load.image('ghibli_bg', 'https://labs.phaser.io/assets/skies/gradient2.png');
+    this.load.image('mossy_ground', 'https://labs.phaser.io/assets/sprites/platform.png');
+    this.load.image('mushroom_it', 'https://labs.phaser.io/assets/sprites/mushroom.png');
+    this.load.image('mushroom_ig', 'https://labs.phaser.io/assets/images/fuji.png');
+    this.load.image('leaf_particle', 'https://labs.phaser.io/assets/particles/green.png');
 }
 
 function create() {
-    // 1. พื้นหลังแสงแดดส่องรำไรในป่าลึกสไตล์ Ghibli
     let bg = this.add.image(297, 420, 'ghibli_bg');
     bg.setDisplaySize(595, 841);
-    bg.setTint(0x55aa77); // ย้อมแสงให้เป็นสีเขียวอบอุ่นละมุนตา
+    bg.setTint(0x55aa77);
 
-    // 2. ขอบพุ่มหญ้ามอสหนานุ่มด้านล่างจอ
     let ground = this.add.tileSprite(297, 810, 595, 70, 'mossy_ground');
-    ground.setTint(0x1e4620); // สีเขียวมอสป่าลึก
+    ground.setTint(0x1e4620);
 
-    // 3. ปล่อยละอองสปอร์เรืองแสงลอยละล่องในฉาก เพิ่มมิติความงามแบบ 3D อนิเมชัน
     ambientParticles = this.add.particles(0, 0, 'leaf_particle', {
         x: { min: 0, max: 595 },
         y: { min: 0, max: 841 },
@@ -83,20 +76,17 @@ function create() {
         frequency: 200
     });
 
-    // 4. ออกแบบ UI ด้วยฟอนต์ไอติม แยกสัดส่วนชัดเจน ไม่ซ้อนกันแน่นอน!
-    // กล่องคะแนนอยู่ที่มุมซ้ายบน
-    scoreText = this.add.text(30, 40, 'Score: 0', { 
-        fontFamily: 'Itim', fontSize: '30px', fill: '#ffffff', stroke: '#1c3524', strokeThickness: 5 
+    // แยกโซนข้อความ ไม่ให้ทับกันเด็ดขาด
+    scoreText = this.add.text(40, 40, 'Score: 0', { 
+        fontFamily: 'Itim', fontSize: '32px', fill: '#ffffff', stroke: '#1c3524', strokeThickness: 5 
     });
 
-    // ป้ายโจทย์ภารกิจ อยู่ตรงกลางด้านบนอย่างสง่างาม
     targetText = this.add.text(297, 130, 'ตามหาเสียง: -it 🌿', { 
         fontFamily: 'Itim', fontSize: '38px', fill: '#fff5cc', stroke: '#2e4a36', strokeThickness: 6 
     }).setOrigin(0.5);
 
     changeTargetSound();
 
-    // 5. ปล่อยเห็ดลอยนุ่มนวลขึ้นมาจากป่า ทุกๆ 1.4 วินาที
     spawnTimer = this.time.addEvent({
         delay: 1400,
         callback: spawnGhibliMushroom,
@@ -117,12 +107,9 @@ function spawnGhibliMushroom() {
 
     let mushroom = this.physics.add.image(x, y, texture);
     mushroom.setData('phonics_type', type);
-    mushroom.setScale(1.5); // ขนาดใหญ่ จิ้มง่ายเต็มข้อมือ
-
-    // ความเร็วในการลอยนุ่มๆ ละมุนๆ ไม่เร็วเกินไป เด็กๆ จะได้มองคำศัพท์ทัน
+    mushroom.setScale(1.5);
     mushroom.setVelocityY(Phaser.Math.Between(-250, -400));
 
-    // ตัวหนังสือฟอนต์ไอติมสีขาว คมชัด สไตล์มินิมอลพรีเมียม
     let textObj = this.add.text(x, y, word, {
         fontFamily: 'Itim',
         fontSize: '34px',
@@ -133,7 +120,6 @@ function spawnGhibliMushroom() {
 
     mushroom.setInteractive();
     
-    // เมื่อใช้นิ้วแปะเลือกเห็ดวิเศษ
     mushroom.on('pointerdown', function() {
         if (mushroom.getData('phonics_type') === currentTarget) {
             score += 10;
@@ -160,10 +146,9 @@ function spawnGhibliMushroom() {
         mushroom.destroy();
     });
 
-    // สั่งเคลื่อนที่ให้อ่อนช้อย อิงตามสายลมในป่าจิบลิ
     this.tweens.add({
         targets: textObj,
-        x: x + Phaser.Math.Between(-20, 20), // มีการร่อนซ้ายขวานิดๆ ตามแรงลม
+        x: x + Phaser.Math.Between(-20, 20),
         y: -100,
         duration: 5500,
         onUpdate: function() {
